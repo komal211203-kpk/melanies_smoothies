@@ -1,4 +1,3 @@
-```python
 # Import python packages
 import streamlit as st
 from snowflake.snowpark.functions import col
@@ -13,7 +12,7 @@ st.write("Choose the fruits you want in your custom Smoothie!")
 name_on_order = st.text_input("Name on Smoothie:")
 st.write('The name on Smoothie will be:', name_on_order)
 
-# Snowflake connection (uses secrets.toml in Streamlit Cloud)
+# Snowflake connection
 cnx = st.connection("snowflake")
 session = cnx.session()
 
@@ -24,7 +23,7 @@ my_dataframe = session.table("smoothies.public.fruit_options") \
 # Convert to pandas
 pd_df = my_dataframe.to_pandas()
 
-# FIX: multiselect needs list, not dataframe
+# FIX: multiselect needs list
 fruit_list = pd_df["FRUIT_NAME"].tolist()
 
 ingredients_list = st.multiselect(
@@ -56,7 +55,6 @@ if ingredients_list:
 
     st.write("Final ingredients:", ingredients_string)
 
-    # Better SQL formatting
     my_insert_stmt = f"""
         INSERT INTO smoothies.public.orders(ingredients, name_on_order)
         VALUES ('{ingredients_string}', '{name_on_order}')
@@ -65,4 +63,3 @@ if ingredients_list:
     if st.button("Submit Order"):
         session.sql(my_insert_stmt).collect()
         st.success('Your Smoothie is ordered!', icon="✅")
-```
