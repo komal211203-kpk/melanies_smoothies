@@ -1,101 +1,68 @@
-# Import python packages.
-
+```python
+# Import python packages
 import streamlit as st
-
 from snowflake.snowpark.functions import col
-import requests  
+import requests
 import pandas as pd
- 
-# Write directly to the app.
 
+# App title
 st.title(":cup_with_straw: Customize Your Smoothie! :cup_with_straw:")
+st.write("Choose the fruits you want in your custom Smoothie!")
 
-st.write(
+# User input
+name_on_order = st.text_input("Name on Smoothie:")
+st.write('The name on Smoothie will be:', name_on_order)
 
-  "Choose the fruits you want in your custom Smoothie!"
-
-)
-
-name_on_order=st.text_input("Name on Smoothie:")
-
-st.write('The name on Smoothie will be:',name_on_order)
- 
-# option=st.selectbox('How would you like to be contacted?',
-
-# ('Email','Home phone','Mobile phone'))
-
-# st.write('You selected:',option)
- 
-# my_insert_stmt = f"""
-
-# INSERT INTO smoothies.public.orders(ingredients)
-
-# VALUES ('{ingredients_string}', '{name_on_order}')
-
-# """
- 
-# option=st.selectbox('What is your favorite fruit?',
-
-# ('Banana','Strawberries','Peaches'))
-
-# st.write('You favorite fruit is:',option)
-
-cnx=st.connection("snowflake")
-
+# Snowflake connection (uses secrets.toml in Streamlit Cloud)
+cnx = st.connection("snowflake")
 session = cnx.session()
 
-my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME'),(col('SEARCH_ON')))
+# Fetch fruit data
+my_dataframe = session.table("smoothies.public.fruit_options") \
+    .select(col('FRUIT_NAME'), col('SEARCH_ON'))
 
-#st.dataframe(data=my_dataframe, use_container_width=True)
+# Convert to pandas
+pd_df = my_dataframe.to_pandas()
 
-pd_df=my_dataframe.to_pandas()
+# FIX: multiselect needs list, not dataframe
+fruit_list = pd_df["FRUIT_NAME"].tolist()
 
-#st.dataframe(pd_df)
-
-#st.stop()
-
-ingredients_list=st.multiselect('Choose upto 5 ingredients:',my_dataframe,max_selections=5)
+ingredients_list = st.multiselect(
+    'Choose up to 5 ingredients:',
+    fruit_list,
+    max_selections=5
+)
 
 if ingredients_list:
 
-    # st.write(ingredients_list)
-
-    # st.text(ingredients_list)
-
-    ingredients_string=""
+    ingredients_string = ""
 
     for i in ingredients_list:
+        ingredients_string += i + " "
 
-        ingredients_string+=i+" " 
+        search_on = pd_df.loc[
+            pd_df['FRUIT_NAME'] == i, 'SEARCH_ON'
+        ].iloc[0]
 
-        #st.write(pd_df.columns)
+        st.write('Search value for', i, 'is', search_on)
 
-        search_on=pd_df.loc[pd_df['FRUIT_NAME'] == i, 'SEARCH_ON'].iloc[0]
+        st.subheader(i + " Nutrition Information")
 
-        st.write('The search value for ', i,' is ', search_on, '.')
+        response = requests.get(
+            "https://my.smoothiefroot.com/api/fruit/" + search_on
+        )
 
-        st.subheader(i+" Nutrition Information ")
+        st.dataframe(response.json(), use_container_width=True)
 
-        smoothiefroot_response = requests.get("https://my.smoothiefroot.com/api/fruit/"+search_on)
+    st.write("Final ingredients:", ingredients_string)
 
-        sf_df=st.dataframe(data=smoothiefroot_response.json(),use_container_width=True)
- 
-    st.write(ingredients_string)
+    # Better SQL formatting
+    my_insert_stmt = f"""
+        INSERT INTO smoothies.public.orders(ingredients, name_on_order)
+        VALUES ('{ingredients_string}', '{name_on_order}')
+    """
 
-    my_insert_stmt = """insert into smoothies.public.orders(ingredients, name_on_order)
-
-    values ('""" + ingredients_string + """', '""" + name_on_order + """')"""
-
-    #st.write(my_insert_stmt)
-
-    time_to_insert=st.button("Submit Order")
-
-    if time_to_insert:
-
+    if st.button("Submit Order"):
         session.sql(my_insert_stmt).collect()
-
         st.success('Your Smoothie is ordered!', icon="✅")
- 
- 
-#st.text(smoothiefroot_response)
- 
+```
