@@ -1,8 +1,0 @@
-[connections.snowflake]
-account = "ZONKHHP-GHB73194"
-user = "DEEPANSHUKHANNA"
-password = ""
-role = "ACCOUNTADMIN"
-warehouse = "COMPUTE_WH"
-database = "SMOOTHIES"
-schema = "PUBLIC"
