@@ -1,54 +1,43 @@
+# Import python packages
 import streamlit as st
+from snowflake.snowpark.context import get_active_session
 from snowflake.snowpark.functions import col
-import requests
 
-st.title(":cup_with_straw: Customize Your Smoothie! :cup_with_straw:")
+# Title
+st.title("🥤 Customize Your Smoothie! 🥤")
 st.write("Choose the fruits you want in your custom Smoothie!")
 
+# Name input
 name_on_order = st.text_input("Name on Smoothie:")
-st.write("The name on Smoothie will be:", name_on_order)
+st.write("The name on your Smoothie will be:", name_on_order)
 
-cnx = st.connection("snowflake")
-session = cnx.session()
+# Snowflake session
+session = get_active_session()
 
-my_dataframe = session.table("smoothies.public.fruit_options") \
-    .select(col("FRUIT_NAME"), col("SEARCH_ON"))
+# Fetch fruit data - this matches the 'my_dataframe' used in the image
+my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME'))
 
-pd_df = my_dataframe.to_pandas()
-
-fruit_list = pd_df["FRUIT_NAME"].tolist()
+# Multiselect (max 5) - Corrected syntax based on image_001fa3.jpg
 ingredients_list = st.multiselect(
-    "Choose up to 5 ingredients:",
-    fruit_list,
+    'Choose up to 5 ingredients:',
+    my_dataframe,
     max_selections=5
 )
 
+# Validate selection
 if ingredients_list:
-    ingredients_string = ""
+    ingredients_string = ''
 
-    for i in ingredients_list:
-        ingredients_string += i + " "
+    for fruit_chosen in ingredients_list:
+        ingredients_string += fruit_chosen + ' '
 
-        search_on = pd_df.loc[pd_df["FRUIT_NAME"] == i, "SEARCH_ON"].iloc[0]
+    # SQL Insert statement
+    my_insert_stmt = """ insert into smoothies.public.orders(ingredients, name_on_order)
+            values ('""" + ingredients_string + """','""" + name_on_order + """')"""
 
-        st.subheader(i + " Nutrition Information")
-        response = requests.get("https://my.smoothiefroot.com/api/fruit/" + search_on)
+    # Submit button
+    time_to_insert = st.button('Submit Order')
 
-        if response.status_code == 200:
-            st.dataframe(response.json(), use_container_width=True)
-        else:
-            st.warning(f"Could not fetch nutrition info for {i}")
-
-    st.write("Final ingredients:", ingredients_string.strip())
-
-    my_insert_stmt = f"""
-        INSERT INTO smoothies.public.orders (ingredients, name_on_order)
-        VALUES ('{ingredients_string.strip()}', '{name_on_order.replace("'", "''")}')
-    """
-
-    if st.button("Submit Order"):
-        if not name_on_order:
-            st.error("Please enter a name for your order!")
-        else:
-            session.sql(my_insert_stmt).collect()
-            st.success("Your Smoothie is ordered!", icon="✅")
+    if time_to_insert:
+        session.sql(my_insert_stmt).collect()
+        st.success(f'Your Smoothie is ordered, {name_on_order}!', icon="✅")
